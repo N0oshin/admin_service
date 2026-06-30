@@ -1,0 +1,1075 @@
+{
+  "info": {
+    "name": "Admin Service API Tests",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Full API test suite for admin-service. Run with the matching environment file. Auth token is captured automatically from the login request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",                  "value": "http://localhost:5001" },
+    { "key": "authToken",                "value": "" },
+    { "key": "createdOrderId",           "value": "" },
+    { "key": "createdOrderNumber",       "value": "" },
+    { "key": "testCustomerEmail",        "value": "apitest@example.com" },
+    { "key": "createdWholesaleOrderId",  "value": "" },
+    { "key": "createdProductId",         "value": "" }
+  ],
+  "item": [
+
+    {
+      "name": "Auth & Health",
+      "item": [
+
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has status field', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('status');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{adminUsername}}\", \"password\": \"{{adminPassword}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/login", "host": ["{{baseUrl}}"], "path": ["api","admin","login"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has token', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('token');",
+            "  pm.collectionVariables.set('authToken', j.token);",
+            "});",
+            "pm.test('User role is admin', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.user).to.have.property('role', 'admin');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/verify", "host": ["{{baseUrl}}"], "path": ["api","admin","verify"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Token is valid', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.valid).to.be.true;",
+            "  pm.expect(j).to.have.property('user');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Orders",
+      "item": [
+
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/orders?limit=10&offset=0", "host": ["{{baseUrl}}"], "path": ["api","admin","orders"], "query": [{ "key": "limit", "value": "10" }, { "key": "offset", "value": "0" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has orders array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('orders');",
+            "  pm.expect(j.orders).to.be.an('array');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "customer_name",    "value": "API Test Customer", "type": "text" },
+                { "key": "customer_email",   "value": "{{testCustomerEmail}}", "type": "text" },
+                { "key": "customer_phone",   "value": "+441234567890", "type": "text" },
+                { "key": "shipping_address", "value": "1 Test Street", "type": "text" },
+                { "key": "shipping_city",    "value": "London", "type": "text" },
+                { "key": "shipping_zip",     "value": "SW1A 1AA", "type": "text" },
+                { "key": "shipping_country", "value": "United Kingdom", "type": "text" },
+                { "key": "currency",         "value": "GBP", "type": "text" },
+                { "key": "payment_method",   "value": "Bank Transfer", "type": "text" },
+                { "key": "items",            "value": "[{\"name\":\"Test Product\",\"sku\":\"TEST-SKU-001\",\"quantity\":1,\"unit_price\":29.99}]", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/orders", "host": ["{{baseUrl}}"], "path": ["api","admin","orders"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Order created with ID and number', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j.order).to.have.property('id');",
+            "  pm.expect(j.order).to.have.property('order_number');",
+            "  pm.collectionVariables.set('createdOrderId', String(j.order.id));",
+            "  pm.collectionVariables.set('createdOrderNumber', j.order.order_number);",
+            "});",
+            "pm.test('Items array present', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.items).to.be.an('array').with.lengthOf.at.least(1);",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has order, items, payments', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.all.keys('order', 'items', 'payments');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Get Order by Number",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/order-number/{{createdOrderNumber}}", "host": ["{{baseUrl}}"], "path": ["api","admin","order-number","{{createdOrderNumber}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Order number matches', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.order.order_number).to.equal(pm.collectionVariables.get('createdOrderNumber'));",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Latest Order by Email",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/orders/latest-by-email/{{testCustomerEmail}}", "host": ["{{baseUrl}}"], "path": ["api","admin","orders","latest-by-email","{{testCustomerEmail}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200 or 404', () => {",
+            "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+            "});",
+            "pm.test('Valid response shape', () => {",
+            "  const j = pm.response.json();",
+            "  if (pm.response.code === 200) pm.expect(j).to.have.property('order');",
+            "  else pm.expect(j).to.have.property('error');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"processing\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}/status", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}","status"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true and order returned', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j).to.have.property('order');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Update Payment Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"payment_status\": \"received\", \"bank_account_used\": \"ibalticx\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}/payment-status", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}","payment-status"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Update Order Items",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"items\": [{\"name\": \"Updated Product\", \"sku\": \"TEST-SKU-001\", \"quantity\": 2, \"unit_price\": 29.99}]}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}/items", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}","items"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Update Promo Code",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"promo_code\": \"SAVE10\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}/promo", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}","promo"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Update Shipping Address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"shipping_address\": \"99 New Road\", \"shipping_city\": \"Manchester\", \"shipping_state\": \"\", \"shipping_zip\": \"M1 1AA\", \"shipping_country\": \"United Kingdom\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}/shipping", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}","shipping"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Delete Order",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Confirm Order Deleted (404)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/order/{{createdOrderId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","order","{{createdOrderId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 404 after delete', () => pm.response.to.have.status(404));"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Stats",
+      "item": [
+
+        {
+          "name": "Get Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats", "host": ["{{baseUrl}}"], "path": ["api","admin","stats"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has key stat fields', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.include.keys('totalOrders','totalRevenue','pendingOrders','completedOrders');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Orders Submitted Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats/orders-submitted?window=24 hours", "host": ["{{baseUrl}}"], "path": ["api","admin","stats","orders-submitted"], "query": [{ "key": "window", "value": "24 hours" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+
+        {
+          "name": "Completed Payments Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats/completed-payments?window=7 days", "host": ["{{baseUrl}}"], "path": ["api","admin","stats","completed-payments"], "query": [{ "key": "window", "value": "7 days" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+
+        {
+          "name": "Product Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats/product?sku=TEST-SKU-001", "host": ["{{baseUrl}}"], "path": ["api","admin","stats","product"], "query": [{ "key": "sku", "value": "TEST-SKU-001" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+
+        {
+          "name": "Weekly Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats/weekly", "host": ["{{baseUrl}}"], "path": ["api","admin","stats","weekly"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+
+        {
+          "name": "Timeseries Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats/timeseries?from=2025-01-01&to=2025-12-31&interval=month", "host": ["{{baseUrl}}"], "path": ["api","admin","stats","timeseries"], "query": [{ "key": "from", "value": "2025-01-01" }, { "key": "to", "value": "2025-12-31" }, { "key": "interval", "value": "month" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Customers",
+      "item": [
+
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/customers?limit=10&offset=0", "host": ["{{baseUrl}}"], "path": ["api","admin","customers"], "query": [{ "key": "limit", "value": "10" }, { "key": "offset", "value": "0" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has customers array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('customers');",
+            "  pm.expect(j.customers).to.be.an('array');",
+            "  if (j.customers.length > 0) {",
+            "    pm.collectionVariables.set('testCustomerEmail', j.customers[0].email);",
+            "  }",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Get Customer by Email",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/customers/{{testCustomerEmail}}", "host": ["{{baseUrl}}"], "path": ["api","admin","customers","{{testCustomerEmail}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200 or 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+            "pm.test('Valid response shape', () => {",
+            "  const j = pm.response.json();",
+            "  if (pm.response.code === 200) {",
+            "    pm.expect(j.success).to.be.true;",
+            "    pm.expect(j).to.have.property('customer');",
+            "  } else {",
+            "    pm.expect(j).to.have.property('error');",
+            "  }",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Customer Blacklist",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/customer-blacklist", "host": ["{{baseUrl}}"], "path": ["api","admin","customer-blacklist"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has blacklist array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('blacklist');",
+            "  pm.expect(j.blacklist).to.be.an('array');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Products",
+      "item": [
+
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/products", "host": ["{{baseUrl}}"], "path": ["api","admin","products"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has products array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('products');",
+            "  pm.expect(j.products).to.be.an('array');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Product Config",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/product-config", "host": ["{{baseUrl}}"], "path": ["api","admin","product-config"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has config array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j).to.have.property('config');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Test Product\",\"sku\":\"TEST-POSTMAN-001\",\"price\":29.99,\"currency\":\"GBP\",\"short_desc\":\"A test product created via API\",\"in_stock\":1,\"is_enabled\":1,\"display_order\":99,\"images\":[{\"src\":\"https://example.com/img.jpg\",\"position\":1}]}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/products", "host": ["{{baseUrl}}"], "path": ["api","admin","products"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Product created with id and slug', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j.product).to.have.property('id');",
+            "  pm.expect(j.product).to.have.property('slug');",
+            "  pm.collectionVariables.set('createdProductId', String(j.product.id));",
+            "});",
+            "pm.test('Images array present', () => {",
+            "  pm.expect(pm.response.json().product.images).to.be.an('array');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/products/{{createdProductId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","products","{{createdProductId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has product with images', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j.product).to.have.property('id');",
+            "  pm.expect(j.product).to.have.property('images');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Updated Test Product\",\"price\":39.99,\"short_desc\":\"Updated via API test\",\"is_enabled\":1}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/products/{{createdProductId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","products","{{createdProductId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Product updated', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j.product.name).to.equal('Updated Test Product');",
+            "  pm.expect(Number(j.product.price)).to.equal(39.99);",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/products/{{createdProductId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","products","{{createdProductId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Confirm Product Deleted (404)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/products/{{createdProductId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","products","{{createdProductId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 404 after delete', () => pm.response.to.have.status(404));"
+          ]}}]
+        },
+
+        {
+          "name": "Klyme Status by IDs (Public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"productIds\": [1, 2, 3]}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/products/klyme-status", "host": ["{{baseUrl}}"], "path": ["api","products","klyme-status"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has klyme_settings object', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('klyme_settings');",
+            "  pm.expect(j.klyme_settings).to.be.an('object');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Klyme Status by SKUs (Public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"skus\": [\"SKU-001\", \"SKU-002\"]}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/products/klyme-status-by-sku", "host": ["{{baseUrl}}"], "path": ["api","products","klyme-status-by-sku"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has klyme_settings object', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('klyme_settings');",
+            "  pm.expect(j.klyme_settings).to.be.an('object');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Affiliates",
+      "item": [
+
+        {
+          "name": "Affiliate Requests (pending)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/affiliate-requests?status=pending&limit=10", "host": ["{{baseUrl}}"], "path": ["api","admin","affiliate-requests"], "query": [{ "key": "status", "value": "pending" }, { "key": "limit", "value": "10" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has requests array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('requests');",
+            "  pm.expect(j.requests).to.be.an('array');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "List Affiliates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/affiliates?limit=10", "host": ["{{baseUrl}}"], "path": ["api","admin","affiliates"], "query": [{ "key": "limit", "value": "10" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has affiliates array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('affiliates');",
+            "  pm.expect(j.affiliates).to.be.an('array');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Payment Links",
+      "item": [
+
+        {
+          "name": "List Payment Links",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/payment-links?limit=10", "host": ["{{baseUrl}}"], "path": ["api","admin","payment-links"], "query": [{ "key": "limit", "value": "10" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has links array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('links');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "iBalticX Paid Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/ibalticx-paid", "host": ["{{baseUrl}}"], "path": ["api","admin","ibalticx-paid"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has orders array', () => pm.expect(pm.response.json()).to.have.property('orders'));"
+          ]}}]
+        },
+
+        {
+          "name": "Klyme Paid Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/klyme-paid", "host": ["{{baseUrl}}"], "path": ["api","admin","klyme-paid"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has orders array', () => pm.expect(pm.response.json()).to.have.property('orders'));"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Address Changes",
+      "item": [
+
+        {
+          "name": "List Address Change Requests",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/address-change-requests", "host": ["{{baseUrl}}"], "path": ["api","admin","address-change-requests"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has requests array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j).to.have.property('requests');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Wholesale",
+      "item": [
+
+        {
+          "name": "List Wholesale Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/orders?limit=10&status=all", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","orders"], "query": [{ "key": "limit", "value": "10" }, { "key": "status", "value": "all" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has orders array', () => pm.expect(pm.response.json()).to.have.property('orders'));"
+          ]}}]
+        },
+
+        {
+          "name": "Create Wholesale Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"first_name\":\"Test\",\"last_name\":\"Wholesale\",\"email\":\"wholesale-test@example.com\",\"mobile\":\"+441234567890\",\"address_line1\":\"1 Test Street\",\"city\":\"London\",\"postal_code\":\"SW1A 1AA\",\"country\":\"United Kingdom\",\"currency\":\"GBP\",\"items\":[{\"product_code\":\"SKU-001\",\"product_title\":\"Test Product\",\"unit_price\":25.00,\"quantity\":10}],\"subtotal\":250.00,\"discount_amount\":0,\"grand_total\":250.00,\"total_payment\":250.00,\"notes\":\"Created by API test suite\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/orders", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","orders"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Wholesale order created', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j.order).to.have.property('id');",
+            "  pm.collectionVariables.set('createdWholesaleOrderId', String(j.order.id));",
+            "});"
+          ]}}]
+        },
+
+        
+
+        {
+          "name": "Get Wholesale Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/orders/{{createdWholesaleOrderId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","orders","{{createdWholesaleOrderId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Order ID matches', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(String(j.id || (j.order && j.order.id))).to.equal(pm.collectionVariables.get('createdWholesaleOrderId'));",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Update Wholesale Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"first_name\":\"Test\",\"last_name\":\"Wholesale\",\"email\":\"wholesale-test@example.com\",\"mobile\":\"+441234567890\",\"country\":\"United Kingdom\",\"currency\":\"GBP\",\"items\":[{\"product_code\":\"SKU-001\",\"product_title\":\"Test Product\",\"unit_price\":25.00,\"quantity\":20}],\"subtotal\":500.00,\"discount_amount\":0,\"grand_total\":500.00,\"total_payment\":500.00,\"notes\":\"Updated by API test suite\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/orders/{{createdWholesaleOrderId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","orders","{{createdWholesaleOrderId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        },
+
+        {
+          "name": "Wholesale Products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/products", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","products"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has products', () => pm.expect(pm.response.json()).to.have.property('products'));"
+          ]}}]
+        },
+
+        {
+          "name": "Product Inventory",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/product-inventory", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","product-inventory"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has inventory', () => pm.expect(pm.response.json()).to.have.property('inventory'));"
+          ]}}]
+        },
+
+        {
+          "name": "Product Recipes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/product-recipes", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","product-recipes"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has recipes', () => pm.expect(pm.response.json()).to.have.property('recipes'));"
+          ]}}]
+        },
+
+        {
+          "name": "Raw Materials Inventory",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/inventory/raw", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","inventory","raw"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has materials', () => pm.expect(pm.response.json()).to.have.property('materials'));"
+          ]}}]
+        },
+
+        {
+          "name": "Wholesale Team",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/team", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","team"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has team array', () => pm.expect(pm.response.json()).to.have.property('team'));"
+          ]}}]
+        },
+
+        {
+          "name": "Wholesale Countries",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/countries", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","countries"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has countries array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j.success).to.be.true;",
+            "  pm.expect(j.countries).to.be.an('array');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Delete Wholesale Order",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale/orders/{{createdWholesaleOrderId}}", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale","orders","{{createdWholesaleOrderId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Wholesale Inquiries",
+      "item": [
+
+        {
+          "name": "List Wholesale Inquiries",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/wholesale-inquiries?limit=10", "host": ["{{baseUrl}}"], "path": ["api","admin","wholesale-inquiries"], "query": [{ "key": "limit", "value": "10" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has inquiries array', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('inquiries');",
+            "  pm.expect(j.inquiries).to.be.an('array');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Newsletter",
+      "item": [
+
+        {
+          "name": "List Newsletter Subscribers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/newsletter?limit=10&offset=0", "host": ["{{baseUrl}}"], "path": ["api","admin","newsletter"], "query": [{ "key": "limit", "value": "10" }, { "key": "offset", "value": "0" }] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has total and items', () => {",
+            "  const j = pm.response.json();",
+            "  pm.expect(j).to.have.property('total');",
+            "  pm.expect(j).to.have.property('items');",
+            "  pm.expect(j.items).to.be.an('array');",
+            "});"
+          ]}}]
+        },
+
+        {
+          "name": "Export Newsletter CSV",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/newsletter/export.csv", "host": ["{{baseUrl}}"], "path": ["api","admin","newsletter","export.csv"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Content-Type is CSV', () => {",
+            "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+            "});"
+          ]}}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Error Handling",
+      "item": [
+
+        {
+          "name": "Missing Auth → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/orders", "host": ["{{baseUrl}}"], "path": ["api","admin","orders"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Unauthenticated request returns 401', () => pm.response.to.have.status(401));",
+            "pm.test('Error message present', () => pm.expect(pm.response.json()).to.have.property('error'));"
+          ]}}]
+        },
+
+        {
+          "name": "Invalid Order ID → 400 or 404",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/order/999999999", "host": ["{{baseUrl}}"], "path": ["api","admin","order","999999999"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Non-existent order returns 404', () => pm.response.to.have.status(404));",
+            "pm.test('Error message present', () => pm.expect(pm.response.json()).to.have.property('error'));"
+          ]}}]
+        },
+
+        {
+          "name": "Bad Login → 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"admin\", \"password\": \"wrongpassword\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/admin/login", "host": ["{{baseUrl}}"], "path": ["api","admin","login"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Bad credentials return 401', () => pm.response.to.have.status(401));",
+            "pm.test('Error message present', () => pm.expect(pm.response.json()).to.have.property('error'));"
+          ]}}]
+        }
+
+      ]
+    }
+
+  ]
+}
