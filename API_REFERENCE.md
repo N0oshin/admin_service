@@ -60,7 +60,7 @@ Check if the current token is valid.
 
 ---
 
-### GET `/health`
+### GET `/api/admin/health`
 
 No auth required.
 

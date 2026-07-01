@@ -897,7 +897,7 @@ async function ensureWholesaleConsoleSchema() {
         title VARCHAR(255) NOT NULL,
         unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         currency VARCHAR(8) NOT NULL DEFAULT 'GBP',
-        is_active SMALLINT NOT NULL DEFAULT 1,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -911,7 +911,7 @@ async function ensureWholesaleConsoleSchema() {
 
   // Ensure is_active column exists (table may have been created externally without it)
   try {
-    await dbQuery('ALTER TABLE wholesale_products ADD COLUMN IF NOT EXISTS is_active SMALLINT NOT NULL DEFAULT 1')
+    await dbQuery('ALTER TABLE wholesale_products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE')
   } catch (e) {
     const msg = String(e?.message || e)
     if (!msg.toLowerCase().includes('already exists') && !msg.toLowerCase().includes('duplicate')) {
@@ -993,7 +993,7 @@ async function ensureWholesaleConsoleSchema() {
         id BIGSERIAL PRIMARY KEY,
         display_name VARCHAR(120) NOT NULL,
         role VARCHAR(64) NULL,
-        is_active SMALLINT NOT NULL DEFAULT 1,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -1101,7 +1101,7 @@ async function ensureWholesaleConsoleSchema() {
     for (const p of seedProducts) {
       // eslint-disable-next-line no-await-in-loop
       await dbQuery(
-        'INSERT INTO wholesale_products (code, title, unit_price, currency, is_active) VALUES ($1, $2, $3, $4, 1) ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title',
+        'INSERT INTO wholesale_products (code, title, unit_price, currency, is_active) VALUES ($1, $2, $3, $4, true) ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title',
         [p.code, p.title, Number(p.unit_price || 0), 'GBP']
       )
     }
@@ -1129,7 +1129,7 @@ async function ensureWholesaleConsoleSchema() {
     if (!Number.isFinite(c) || c <= 0) {
       for (let i = 1; i <= 10; i += 1) {
         // eslint-disable-next-line no-await-in-loop
-        await dbQuery('INSERT INTO wholesale_team_members (display_name, role, is_active) VALUES ($1, $2, 1)', [`Team Member ${i}`, ''])
+        await dbQuery('INSERT INTO wholesale_team_members (display_name, role, is_active) VALUES ($1, $2, true)', [`Team Member ${i}`, ''])
       }
     }
   } catch (e) {
@@ -3960,7 +3960,7 @@ app.post('/api/admin/email/customer-info/send-all', requireAuth, async (req, res
   }
 })
 
-app.get('/health', async (_req, res) => {
+app.get('/api/admin/health', async (_req, res) => {
   try {
     await dbQuery('SELECT 1')
     res.json({ ok: true, status: 'ok', service: 'admin-service', db: 'connected' })
